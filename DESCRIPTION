@@ -28,7 +28,10 @@ Imports:
     scales,
     tidyverse,
     openxlsx,
-    DT
+    DT,
+    bs4Dash,
+    shinyWidgets,
+    shinydisconnect
 Suggests:
     spelling,
     testthat

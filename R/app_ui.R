@@ -55,26 +55,11 @@ app_ui <- function(request) {
           flat = FALSE,
           tags$li(class = "header", style = "color: grey; margin-top: 10px; margin-bottom: 10px; padding-left: 15px;", "Menu"),
                    menuItem("Home", tabName = "welcome", icon = icon("house"),startExpanded = FALSE),
-          tags$li(class = "header", style = "color: grey; margin-top: 18px; margin-bottom: 10px; padding-left: 15px;", "Genotype Processing"),
-                   menuItem("Convert to VCF", tabName = "dosage2vcf", icon = icon("share-from-square")),
-                   menuItem("Dosage Calling", tabName = "updog", icon = icon("list-ol")),
-                   menuItem("VCF Filtering", tabName = "filtering", icon = icon("filter")),
-          tags$li(class = "header", style = "color: grey; margin-top: 18px; margin-bottom: 10px; padding-left: 15px;", "Summary Metrics"),
+          tags$li(class = "header", style = "color: grey; margin-top: 18px; margin-bottom: 10px; padding-left: 15px;", "Unsupervised"),
+                   menuItem("PolyBreedTools", tabName = "polybreedtools", icon = icon("share-from-square")),
+                   menuItem("SNMF", tabName = "snmf", icon = icon("list-ol")),
+          tags$li(class = "header", style = "color: grey; margin-top: 18px; margin-bottom: 10px; padding-left: 15px;", "Supervised"),
                    menuItem("Genomic Diversity", tabName = "diversity", icon = icon("chart-pie")),
-          tags$li(class = "header", style = "color: grey; margin-top: 18px; margin-bottom: 10px; padding-left: 15px;", "Population Structure"),
-                   menuItem("PCA", tabName = "pca", icon = icon("chart-simple")),
-                   menuItem("DAPC", tabName = "dapc", icon = icon("circle-nodes")),
-          tags$li(class = "header", style = "color: grey; margin-top: 18px; margin-bottom: 10px; padding-left: 15px;", "GWAS"),
-                   menuItem("GWASpoly", tabName = "gwas", icon = icon("think-peaks")),
-          tags$li(class = "header", style = "color: grey; margin-top: 18px; margin-bottom: 10px; padding-left: 15px;", "Genomic Selection"),
-                  menuItem(
-                    span("Predictive Ability"),
-                           tabName = "prediction_accuracy",
-                           icon = icon("right-left")),
-                  menuItem(
-                    span("Genomic Prediction"),
-                      tabName = "prediction",
-                      icon = icon("angles-right")),
           tags$li(class = "header", style = "color: grey; margin-top: 18px; margin-bottom: 10px; padding-left: 15px;", "Information"),
           menuItem("Source Code", icon = icon("circle-info"), href = "https://www.github.com/Breeding-Insight/Genomics_Shiny_App"),
           #menuItem(
@@ -128,34 +113,13 @@ app_ui <- function(request) {
             tabName = "welcome", mod_Home_ui("Home_1")
           ),
           tabItem(
-            tabName = "filtering", mod_Filtering_ui("Filtering_1")
+            tabName = "PolyBreedTools", mod_Filtering_ui("PolyBreedTools_1")
           ),
           tabItem(
-            tabName = "updog", mod_DosageCall_ui("DosageCall_1")
-          ),
-          tabItem(
-            tabName = "dosage2vcf", mod_dosage2vcf_ui("dosage2vcf_1")
-          ),
-          tabItem(
-            tabName = "pca", mod_PCA_ui("PCA_1")
-          ),
-          tabItem(
-            tabName = "dapc", mod_dapc_ui("dapc_1")
-          ),
-          tabItem(
-            tabName = "gwas", mod_gwas_ui("gwas_1")
+            tabName = "SNMF", mod_DosageCall_ui("SNMF_1")
           ),
           tabItem(
             tabName = "diversity", mod_diversity_ui("diversity_1")
-          ),
-          tabItem(
-            tabName = "prediction_accuracy", mod_GSAcc_ui("GSAcc_1")
-          ),
-          tabItem(
-            tabName = "prediction", mod_GS_ui("GS_1")
-          ),
-          tabItem(
-            tabName = "slurm", mod_slurm_ui("slurm_1")
           ),
           tabItem(
             tabName = "help", mod_help_ui("help_1")
@@ -184,7 +148,7 @@ golem_add_external_resources <- function() {
     favicon(),
     bundle_resources(
       path = app_sys("app/www"),
-      app_title = "BIGapp"
+      app_title = "familia"
     )
     # Add here other external resources
     # for example, you can add shinyalert::useShinyalert()
