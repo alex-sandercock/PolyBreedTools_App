@@ -1,102 +1,67 @@
-# PolyBreedTools_App
 
-![Version](https://img.shields.io/badge/version-1.1-blue.svg)
-![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
-![Status](https://img.shields.io/badge/development-active-brightgreen.svg)
+<!-- README.md is generated from README.Rmd. Please edit that file -->
 
-**PolyBreedTools_App** is a Shiny application for ancestry estimation using genotypic data. Designed to support any species and ploidy level, it enables users to estimate admixture proportions using reference populations and visualizes ancestry results interactively.
+# `{shinyexample}`
 
----
+<!-- badges: start -->
 
-## Overview
+[![Lifecycle:
+experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+<!-- badges: end -->
 
-This app allows users to:
+## Installation
 
-- Upload genotype files for **reference** and **validation** (aka test) individuals  
-- Upload a file mapping **reference IDs to populations**  
-- Specify **organism ploidy**  
-- Perform ancestry estimation using `breedTools::RpolyBreedTools()`  
-- Visualize ancestry proportions interactively for each individual  
+You can install the development version of `{shinyexample}` like so:
 
-Designed to work seamlessly with **polyploid** and **non-model** species.
-
----
-
-## Dependencies
-
-This app requires the following R packages:
-
-- `shiny`: Build the user interface  
-- `BIGr`: For breedTools methods adapted to any ploidy
-- `tidyverse`: For data manipulation and plotting  
-- `scales`: For pretty formatting of percentages  
-- `viridis`: For color-blind friendly plots  
-- `openxlsx`: For outputting ancestry matrices to Excel  
-
-Install all dependencies with:
-
-```r
-install.packages(c("shiny", "tidyverse", "scales", "viridis", "openxlsx", "BIGr"))
-# install breedTools from GitHub
-remotes::install_github("Breeding-Insight/breedTools")
+``` r
+# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
 ```
 
----
+## Run
 
-## Usage
+You can launch the application by running:
 
-To run the app locally:
-
-```r
-# Load shiny
-library(shiny)
-
-# Run the app from local directory
-runApp("path/to/breedTools_Poly_App")
+``` r
+shinyexample::run_app()
 ```
 
----
+## About
 
-## Input Files
+You are reading the doc about version : 0.1.0
 
-All files must be **tab-separated** and include headers.
+This README has been compiled on the
 
-### 1. Reference Genotype File  
-- Rows: Individuals  
-- Columns: Marker values (e.g., 0, 1, 2)  
-- Row names: Individual IDs  
+``` r
+Sys.time()
+#> [1] "2026-03-01 09:37:46 EST"
+```
 
-### 2. Validation Genotype File  
-- Same format as reference file  
-- Must contain the **same markers in the same order**
+Here are the tests results and package coverage:
 
-### 3. Reference ID File  
-- Two columns:  
-  - `ID`: Matches row names in the reference file  
-  - `Population`: Reference group or population name
+``` r
+devtools::check(quiet = TRUE)
+#> ℹ Loading familia
+#> ── R CMD check results ────────────────────────────────────── familia 0.1.0 ────
+#> Duration: 9.6s
+#> 
+#> ❯ checking dependencies in R code ... WARNING
+#>   '::' or ':::' import not declared from: ‘config’
+#>   Namespaces in Imports field not imported from:
+#>     ‘BIGr’ ‘DT’ ‘golem’ ‘openxlsx’ ‘scales’ ‘shiny’ ‘tidyverse’ ‘vcfR’
+#>     ‘viridis’
+#>     All declared Imports should be used.
+#> 
+#> ❯ checking top-level files ... NOTE
+#>   Non-standard files/directories found at top level:
+#>     ‘app’ ‘app.R’ ‘dev’
+#> 
+#> 0 errors ✔ | 1 warning ✖ | 1 note ✖
+#> Error:
+#> ! R CMD check found WARNINGs
+```
 
-### 4. Ploidy  
-- Select organism ploidy from the app interface (e.g., 2, 4, 6)
-
----
-
-## Output
-
-The app produces:
-
-- An interactive **ancestry barplot** for each validation individual  
-- A **downloadable Excel file** with ancestry proportions:  
-  - Rows: Validation individuals  
-  - Columns: Reference populations
-
----
-
-## Citation
-
-For publication, please cite:
-
-- [Funkhouser et al.](https://academic.oup.com/tas/article/1/1/36/4636602) for original breedTools methods  
-- [Sandercock et al.](https://acsess.onlinelibrary.wiley.com/doi/10.1002/tpg2.70067) for methods expansion to polyploidy  
-- This app:  
-Chinchilla-Vargas, Josue, Breeding Insight team. 2025.
-“PolyBreedTools_App: Shiny App for Genomic Ancestry Estimation in Any Species.” https://github.com/Breeding-Insight/breedTools_Poly_App RRID: SCR_027197
+``` r
+covr::package_coverage()
+#> familia Coverage: 0.00%
+#> R/app_config.R: 0.00%
+```

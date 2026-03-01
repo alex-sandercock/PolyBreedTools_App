@@ -1,26 +1,35 @@
 Package: familia
 Title: R Shiny Application for Ancestry Assessments
-Version: 1.6.0
+Version: 0.1.0
 Authors@R: 
     c(
               person("Josue", "Chinchilla-Vargas",
-                    role = "aut","cre"),
+                    role = c("aut","cre"),
+                    email = "josue.chinchilla@ufl.edu"),
               person(c("Alexander", "M."), "Sandercock",
-                    role = c("aut"),
-                    email = "ams866@cornell.edu"),
+                    role = "aut"),
               person("Breeding Insight Team",
                     role = "aut"))
 Description: This R shiny app provides a web-based user friendly way for researchers to analyze genomic data without needing to use command-line tools.
              Ancestry methods such as snmf() and PolyBreedTools are provided for researchers to evaluate the ancestry of plant and animal samples through
              supervised and unsupervised approaches.
-License: Apache License (== 2.0)
+License: Apache License (>= 2)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 Depends: R (>= 4.4.0)
 biocViews:
 Imports: 
     vcfR (>= 1.15.0),
-    BIGr
+    BIGr,
+    shiny,
+    golem,
+    viridis,
+    scales,
+    tidyverse,
+    openxlsx,
+    DT
 Suggests:
+    spelling,
     testthat
+Language: en-US
