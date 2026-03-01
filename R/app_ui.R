@@ -113,10 +113,10 @@ app_ui <- function(request) {
             tabName = "welcome", mod_Home_ui("Home_1")
           ),
           tabItem(
-            tabName = "PolyBreedTools", mod_polybreedtools_ui("PolyBreedTools_1")
+            tabName = "polybreedtools", mod_polybreedtools_ui("PolyBreedTools_1")
           ),
           tabItem(
-            tabName = "SNMF", mod_SNMF_ui("SNMF_1")
+            tabName = "snmf", mod_SNMF_ui("SNMF_1")
           ),
           tabItem(
             tabName = "diversity", mod_diversity_ui("diversity_1")
