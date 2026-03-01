@@ -8,7 +8,9 @@
 #'
 #' @importFrom shiny NS tagList
 #' @import shinydisconnect
-mod_diversity_ui <- function(id){
+#' @importFrom DT dataTableOutput
+#' @importFrom bs4Dash valueBoxOutput
+mod_SNMF_ui <- function(id){
   ns <- NS(id)
   tagList(
     # Add GWAS content here
@@ -102,7 +104,7 @@ mod_diversity_ui <- function(id){
 #' @importFrom scales comma_format
 #'
 #' @noRd
-mod_diversity_server <- function(input, output, session, parent_session){
+mod_SNMF_server <- function(input, output, session, parent_session){
 
     ns <- session$ns
 
@@ -634,7 +636,7 @@ mod_diversity_server <- function(input, output, session, parent_session){
 }
 
 ## To be copied in the UI
-# mod_diversity_ui("diversity_1")
+# mod_diversity_ui("SNMF_1")
 
 ## To be copied in the server
-# mod_diversity_server("diversity_1")
+# mod_diversity_server("SNMF_1")

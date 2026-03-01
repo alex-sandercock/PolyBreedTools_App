@@ -31,7 +31,8 @@ Imports:
     DT,
     bs4Dash,
     shinyWidgets,
-    shinydisconnect
+    shinydisconnect,
+    shinyjs
 Suggests:
     spelling,
     testthat

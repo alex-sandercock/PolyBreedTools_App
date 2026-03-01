@@ -89,7 +89,7 @@ app_ui <- function(request) {
         ),
         left = div(
           style = "display: flex; align-items: center; height: 100%;",  
-          sprintf("v%s", as.character(utils::packageVersion("BIGapp")))
+          sprintf("v%s", as.character(utils::packageVersion("familia")))
         )
       ),
       dashboardBody(
@@ -113,10 +113,10 @@ app_ui <- function(request) {
             tabName = "welcome", mod_Home_ui("Home_1")
           ),
           tabItem(
-            tabName = "PolyBreedTools", mod_Filtering_ui("PolyBreedTools_1")
+            tabName = "PolyBreedTools", mod_polybreedtools_ui("PolyBreedTools_1")
           ),
           tabItem(
-            tabName = "SNMF", mod_DosageCall_ui("SNMF_1")
+            tabName = "SNMF", mod_SNMF_ui("SNMF_1")
           ),
           tabItem(
             tabName = "diversity", mod_diversity_ui("diversity_1")
