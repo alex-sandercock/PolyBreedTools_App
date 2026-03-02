@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# `{shinyexample}`
+# `{familia}`
 
 <!-- badges: start -->
 
@@ -11,10 +11,14 @@ experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](h
 
 ## Installation
 
-You can install the development version of `{shinyexample}` like so:
+You can install the development version of `{familia}` like so:
 
 ``` r
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+    install.packages("remotes")
+
+BiocManager::install("Breeding-Insight/familia", dependencies = TRUE)
 ```
 
 ## Run
@@ -22,7 +26,7 @@ You can install the development version of `{shinyexample}` like so:
 You can launch the application by running:
 
 ``` r
-shinyexample::run_app()
+familia::run_app()
 ```
 
 ## About
