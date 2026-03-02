@@ -47,7 +47,7 @@ app_ui <- function(request) {
       help = NULL, #This is the default bs4Dash button to control the presence of tooltips and popovers, which can be added as a user help/info feature.
       bs4DashSidebar(
         skin="light",
-        status = "info",
+        status = "warning",
         fixed=TRUE,
         #minified = F,
         expandOnHover = TRUE,
@@ -74,8 +74,8 @@ app_ui <- function(request) {
           style = "display: flex; align-items: center;",  # Align text and images horizontally
           div(
             style = "display: flex; flex-direction: column; margin-right: 15px; text-align: right;",
-            div("2025 Breeding Insight"),
-            div("Funded by USDA through Cornell University")
+            div("2026 Breeding Insight"),
+            div("Funded by USDA through (UF|IFAS)")
           ),
           div(
             a(
