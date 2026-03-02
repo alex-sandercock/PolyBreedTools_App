@@ -62,11 +62,8 @@ mod_SNMF_ui <- function(id) {
           ),
           shiny::actionButton(ns("snmf_run"), "Run SNMF"),
           shiny::hr(),
-          shiny::uiOutput(ns("snmf_selectors_ui")),
-          shiny::hr(),
           shiny::downloadButton(ns("download_q_csv"), "Download Q (CSV)"),
-          shiny::downloadButton(ns("download_ce_csv"), "Download cross-entropy (CSV)"),
-          shiny::downloadButton(ns("download_project_zip"), "Download project (zip)")
+          shiny::downloadButton(ns("download_ce_csv"), "Download cross-entropy (CSV)")
         )
       ),
       shiny::column(
@@ -76,7 +73,7 @@ mod_SNMF_ui <- function(id) {
           status = "info",
           solidHeader = FALSE,
           width = 12,
-          height = 550,
+          height = 600,
           maximizable = TRUE,
           bs4Dash::tabsetPanel(
             id = ns("snmf_results_tabs"),
@@ -119,7 +116,7 @@ mod_SNMF_ui <- function(id) {
           )
         )
       ),
-      shiny::column(
+      column(
         width = 3,
         bs4Dash::valueBoxOutput(ns("snmf_best_k_box"), width = NULL),
         bs4Dash::valueBoxOutput(ns("snmf_best_ce_box"), width = NULL),
@@ -136,6 +133,25 @@ mod_SNMF_ui <- function(id) {
             striped = TRUE,
             title = " "
           )
+        ),
+        box(title = "Plot Controls", width=12, status = "warning", solidHeader = TRUE, collapsible = TRUE,
+            shiny::uiOutput(ns("snmf_selectors_ui")),
+            div(style="display:inline-block; float:left",dropdownButton(
+              tags$h3("Save Image"),
+              selectInput(inputId = ns('snmf_figure'), label = 'Figure', choices = c("Cross-Entropy Plot","Ancestry Plot")),
+              selectInput(inputId = ns('snmf_image_type'), label = 'File Type', choices = c("jpeg","tiff","png","svg"), selected = "jpeg"),
+              sliderInput(inputId = ns('snmf_image_res'), label = 'Resolution', value = 300, min = 50, max = 1000, step=50),
+              sliderInput(inputId = ns('snmf_image_width'), label = 'Width', value = 8, min = 1, max = 20, step=0.5),
+              sliderInput(inputId = ns('snmf_image_height'), label = 'Height', value = 5, min = 1, max = 20, step = 0.5),
+              fluidRow(
+                downloadButton(ns("download_snmf_figure"), "Save Image"),
+                downloadButton(ns("download_snmf_file"), "Save Files"),
+                downloadButton(ns("download_project_zip"), "Save Project")),
+              circle = FALSE,
+              status = "danger",
+              icon = icon("floppy-disk"), width = "300px", label = "Save",
+              tooltip = tooltipOptions(title = "Click to see inputs!")
+            ))
         )
       )
     )
@@ -219,7 +235,7 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
       },
       subtitle = "Min cross-entropy",
       icon = shiny::icon("chart-line"),
-      color = "warning"
+      color = "olive"
     )
   })
 
@@ -316,14 +332,14 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
     long$ID <- factor(long$ID, levels = unique(df$ID))
     long$Cluster <- factor(long$Cluster, levels = q_cols)
 
-    ggplot2::ggplot(long, ggplot2::aes(x = ID, y = Q, fill = Cluster)) +
-      ggplot2::geom_col(width = 0.9) +
-      ggplot2::scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-      ggplot2::labs(x = "Individual", y = "Ancestry proportion", fill = "Cluster") +
-      ggplot2::theme_minimal() +
-      ggplot2::theme(
-        axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 1, size = 8),
-        panel.grid.major.x = ggplot2::element_blank()
+    ggplot(long, ggplot2::aes(x = ID, y = Q, fill = Cluster)) +
+      geom_col(width = 0.9) +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+      labs(x = "Individual", y = "Ancestry proportion", fill = "Cluster") +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 8),
+        panel.grid.major.x = element_blank()
       )
   })
 
@@ -331,11 +347,11 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
     validate(shiny::need(isTRUE(state$entropy_enabled), "Cross-entropy disabled (see Selection mode)."))
     validate(shiny::need(!is.null(state$ce_summary), "Run SNMF to compute cross-entropy."))
 
-    ggplot2::ggplot(state$ce_summary, ggplot2::aes(x = K, y = min_cross_entropy)) +
-      ggplot2::geom_line() +
-      ggplot2::geom_point() +
-      ggplot2::labs(x = "K", y = "Minimum cross-entropy", title = "SNMF cross-entropy by K") +
-      ggplot2::theme_minimal()
+    ggplot(state$ce_summary, aes(x = K, y = min_cross_entropy)) +
+      geom_line() +
+      geom_point() +
+      labs(x = "K", y = "Minimum cross-entropy", title = "SNMF cross-entropy by K") +
+      theme_minimal()
   })
 
   output$snmf_ce_table <- DT::renderDT({
@@ -413,6 +429,7 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
     file.copy(input$snmf_file$datapath, uploaded_copy, overwrite = TRUE)
 
     # Convert input to .geno if needed
+    # Might want to do this manually with vcfR and conversion to the matrix #######
     if (grepl("\\.geno$", ext_lower)) {
       file.copy(uploaded_copy, geno_path, overwrite = TRUE)
     } else if (grepl("\\.vcf$", ext_lower)) {

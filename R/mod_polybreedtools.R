@@ -32,14 +32,14 @@ mod_polybreedtools_ui <- function(id){
           br()
         )
       ),
-      shiny::column(
+      column(
         width = 6,
         bs4Dash::box(
           title = "Line/lineage content estimation",
           status = "info",
           solidHeader = FALSE,
           width = 12,
-          height = 550,
+          height = 600,
           maximizable = TRUE,
           bs4Dash::tabsetPanel(
             id = ns("polybreedtools_results_tabs"),
@@ -242,21 +242,21 @@ mod_polybreedtools_server <- function(input, output, session, parent_session){
         dat$ID <- factor(dat$ID, levels = unique(dat$ID))
       }
 
-      p <- ggplot2::ggplot(dat, ggplot2::aes(x = ID, y = percent, fill = category)) +
-        ggplot2::geom_bar(stat = "identity") +
+      p <- ggplot(dat, aes(x = ID, y = percent, fill = category)) +
+        geom_bar(stat = "identity") +
         viridis::scale_fill_viridis_d(option = "D") +
-        ggplot2::scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-        ggplot2::labs(x = "Individual ID", y = "Ancestry Proportion", fill = "Line") +
-        ggplot2::theme_minimal()
+        scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+        labs(x = "Individual ID", y = "Ancestry Proportion", fill = "Line") +
+        theme_minimal()
 
       if (isTRUE(input$poly_show_sample_labels)) {
-        p <- p + ggplot2::theme(
-          axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = as.numeric(input$poly_label_size %||% 8))
+        p <- p + theme(
+          axis.text.x = element_text(angle = 45, hjust = 1, size = as.numeric(input$poly_label_size %||% 8))
         )
       } else {
-        p <- p + ggplot2::theme(
-          axis.text.x = ggplot2::element_blank(),
-          axis.ticks.x = ggplot2::element_blank()
+        p <- p + theme(
+          axis.text.x = element_blank(),
+          axis.ticks.x = element_blank()
         )
       }
 
