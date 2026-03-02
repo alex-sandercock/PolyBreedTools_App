@@ -22,7 +22,6 @@ biocViews:
 Imports: 
     vcfR (>= 1.15.0),
     BIGr,
-    LEA,
     shiny,
     golem,
     viridis,
@@ -35,6 +34,7 @@ Imports:
     shinydisconnect,
     shinyjs
 Suggests:
+    LEA,
     spelling,
     testthat
 Language: en-US

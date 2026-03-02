@@ -13,31 +13,41 @@
 mod_polybreedtools_ui <- function(id){
   ns <- NS(id)
   tagList(
-    # Add GWAS content here
-    fluidPage(
-      tags$head(
-        tags$style(HTML(".header-img img { max-width: 300px; margin-bottom: 10px; }"))
+    fluidRow(
+      column(
+        width = 3,
+        bs4Dash::box(
+          title = "Inputs",
+          width = 12,
+          collapsible = TRUE,
+          collapsed = FALSE,
+          status = "info",
+          solidHeader = TRUE,
+          fileInput(ns("reference_file"), "Reference Genotypes (.txt)", accept = ".txt"),
+          fileInput(ns("ref_ids_file"), "Reference IDs (.txt)", accept = ".txt"),
+          fileInput(ns("validation_file"), "Validation Genotypes (.txt)", accept = ".txt"),
+          numericInput(ns("ploidy"), "Ploidy", value = 2, min = 1, max = 20, step = 1),
+          actionButton(ns("run"), "Run Estimation"),
+          br(),
+          br()
+        )
       ),
-      
-      div(class = "header-img", img(src = "logos.png", alt = "Logos")),
-      titlePanel("Line/lineage content estimation"),
-      
-      sidebarLayout(
-        sidebarPanel(
-          fileInput("reference_file", "Reference Genotypes (.txt)", accept = ".txt"),
-          fileInput("ref_ids_file", "Reference IDs (.txt)", accept = ".txt"),
-          fileInput("validation_file", "Validation Genotypes (.txt)", accept = ".txt"),
-          numericInput("ploidy", "Ploidy", value = 2, min = 1, max = 20, step = 1),
-          actionButton("run", "Run Estimation"),
-          br(), br(),
-          downloadButton("download_results", "Download Excel Results")
-        ),
-        
-        mainPanel(
-          tabsetPanel(
-            tabPanel("Instructions",
-                     fluidRow(
-                       column(12, wellPanel(HTML('
+      shiny::column(
+        width = 6,
+        bs4Dash::box(
+          title = "Line/lineage content estimation",
+          status = "info",
+          solidHeader = FALSE,
+          width = 12,
+          height = 550,
+          maximizable = TRUE,
+          bs4Dash::tabsetPanel(
+            id = ns("polybreedtools_results_tabs"),
+            type = "tabs",
+            tabPanel(
+              "Instructions",
+              fluidRow(
+                column(12, shiny::wellPanel(shiny::HTML('
               <ul>
                 <li>This tool was developed by Breeding Insight.</li>
                 <li>It estimates the proportion of each of the lines/groups included in the <strong>reference population</strong> from genotype samples using methods from 
@@ -50,27 +60,72 @@ mod_polybreedtools_ui <- function(id){
                 </ul>
               </ul>
             ')))
-                     ),
-                     fluidRow(
-                       column(6, 
-                              h4("Example Reference IDs"), 
-                              tableOutput("example_ids"),
-                              br(),
-                              downloadButton("download_ids", "Download Sample Reference IDs")
-                       ),
-                       column(6, 
-                              h4("Example Genotypes"), 
-                              tableOutput("example_genos"),
-                              br(),
-                              downloadButton("download_genos", "Download Sample Genotypes")
-                       )
-                     )
+              ),
+              style = "overflow-y: auto; height: 500px"
             ),
-            
-            tabPanel("Results Table", DTOutput("preview")),
-            tabPanel("Ancestry Plot", plotOutput("bar_plot"))
-          ),
-          verbatimTextOutput("status")
+            shiny::tabPanel("Results Table", DT::DTOutput(ns("preview")), style = "overflow-y: auto; height: 500px"),
+            shiny::tabPanel("Ancestry Plot", shiny::plotOutput(ns("bar_plot"), height = "450px"), style = "overflow-y: auto; height: 500px")
+          )
+        ),
+        box(
+          title = "Example Inputs", status = "info", solidHeader = FALSE, width = 12, height = 400, maximizable = T,
+          bs4Dash::tabsetPanel(
+            id = ns('example_tabs'),
+            type = "tabs",
+            tabPanel(
+              "Reference IDs",
+              tableOutput(ns("example_ids")),
+              br(),
+              downloadButton(ns("download_ids"), "Download Sample Reference IDs"),
+              style = "overflow-y: auto; height: 350px"
+            ),
+            tabPanel(
+              "Genotypes",
+              tableOutput(ns("example_genos")),
+              br(),
+              downloadButton(ns("download_genos"), "Download Sample Genotypes"),
+              style = "overflow-y: auto; height: 350px"
+            )
+          )
+        )
+      ),
+      shiny::column(
+        width = 3,
+        bs4Dash::box(
+          title = "Status",
+          width = 12,
+          collapsible = TRUE,
+          collapsed = FALSE,
+          status = "info",
+          solidHeader = TRUE,
+          shiny::verbatimTextOutput(ns("status"))
+        ),
+        box(title = "Plot Controls", width=12, status = "warning", solidHeader = TRUE, collapsible = TRUE,
+            checkboxInput(ns("poly_show_sample_labels"), "Show sample labels", value = FALSE),
+            checkboxInput(ns("poly_sort_by_predicted"), "Sort by predicted line", value = TRUE),
+            sliderInput(ns("poly_label_size"), "Label size", min = 6, max = 14, value = 8, step = 1),
+            div(style="display:inline-block; float:left", dropdownButton(
+              tags$h3("Save"),
+              selectInput(
+                inputId = ns("poly_image_type"),
+                label = "File Type",
+                choices = c("png", "jpeg", "svg", "pdf"),
+                selected = "png"
+              ),
+              sliderInput(inputId = ns("poly_image_res"), label = "Resolution (DPI)", value = 300, min = 50, max = 1000, step = 50),
+              sliderInput(inputId = ns("poly_image_width"), label = "Width (in)", value = 10, min = 3, max = 30, step = 0.5),
+              sliderInput(inputId = ns("poly_image_height"), label = "Height (in)", value = 5, min = 3, max = 20, step = 0.5),
+              fluidRow(
+                downloadButton(ns("download_poly_figure"), "Save Image"),
+                downloadButton(ns("download_poly_file"), "Save Files")
+              ),
+              circle = FALSE,
+              status = "danger",
+              icon = icon("floppy-disk"),
+              width = "300px",
+              label = "Save",
+              tooltip = tooltipOptions(title = "Click to see options!")
+            ))
         )
       )
     )
@@ -93,69 +148,80 @@ mod_polybreedtools_server <- function(input, output, session, parent_session){
     
     #Helper function
     format_percent <- function(x) {
-      percent_format(accuracy = 0.1)(x)
+      scales::percent_format(accuracy = 0.1)(x)
     }
 
 
     result_data <- reactiveVal(NULL)
-    result_filename <- reactiveVal(NULL)
+    poly_items <- reactiveValues(
+      pred_results = NULL,
+      pred_results_long = NULL,
+      id_order = NULL
+    )
     
     observeEvent(input$run, {
       req(input$reference_file, input$ref_ids_file, input$validation_file)
       output$status <- renderText("Running estimation...")
       
       tryCatch({
-        reference <- read.table(input$reference_file$datapath, header = TRUE, sep = "\t") %>%
-          distinct(ID, .keep_all = TRUE) %>%
-          column_to_rownames("ID")
+        reference <- utils::read.table(input$reference_file$datapath, header = TRUE, sep = "\t")
+        reference <- dplyr::distinct(reference, ID, .keep_all = TRUE)
+        reference <- tibble::column_to_rownames(reference, "ID")
         
-        reference_ids <- read.table(input$ref_ids_file$datapath, header = TRUE, sep = "\t")
+        reference_ids <- utils::read.table(input$ref_ids_file$datapath, header = TRUE, sep = "\t")
         ref_ids <- lapply(as.list(reference_ids), as.character)
         
-        validation <- read.table(input$validation_file$datapath, header = TRUE, sep = "\t") %>%
-          distinct(ID, .keep_all = TRUE) %>%
-          column_to_rownames("ID")
+        validation <- utils::read.table(input$validation_file$datapath, header = TRUE, sep = "\t")
+        validation <- dplyr::distinct(validation, ID, .keep_all = TRUE)
+        validation <- tibble::column_to_rownames(validation, "ID")
         
         freq <- BIGr:::allele_freq_poly(reference, ref_ids, ploidy = input$ploidy)
         prediction <- BIGr:::solve_composition_poly(validation, freq, ploidy = input$ploidy)
         
-        prediction <- as.data.frame(prediction)
-        prediction <- prediction[, !colnames(prediction) %in% c("R2")]
+        prediction <- as.data.frame(prediction, check.names = FALSE)
+        prediction <- prediction[, !colnames(prediction) %in% c("R2"), drop = FALSE]
         prediction[] <- lapply(prediction, as.numeric)
-        
+
         columns_to_select <- colnames(prediction)
-        
-        pred_results <- prediction %>%
-          rownames_to_column(var = "ID") %>%
-          mutate(
-            across(all_of(columns_to_select), ~format_percent(.)),
-            `Predicted line` = columns_to_select[max.col(select(., all_of(columns_to_select)), ties.method = "first")]
-          )
+
+        predicted_line <- columns_to_select[max.col(prediction[, columns_to_select, drop = FALSE], ties.method = "first")]
+
+        pred_results <- tibble::rownames_to_column(prediction, var = "ID")
+        pred_results <- dplyr::mutate(
+          pred_results,
+          `Predicted line` = predicted_line
+        )
+        pred_results <- dplyr::mutate(
+          pred_results,
+          dplyr::across(dplyr::all_of(columns_to_select), ~format_percent(.x))
+        )
         
         result_data(pred_results)
+
+        id_order <- data.frame(
+          ID = rownames(prediction),
+          predicted_line = predicted_line,
+          predicted_value = apply(prediction[, columns_to_select, drop = FALSE], 1, max, na.rm = TRUE),
+          stringsAsFactors = FALSE
+        )
         
-        filename <- paste0("lineage_estimation_", format(Sys.Date(), "%Y-%m-%d"), ".xlsx")
-        temp_path <- file.path(tempdir(), filename)
-        result_filename(temp_path)
-        openxlsx::write.xlsx(pred_results, file = temp_path, rowNames = FALSE)
-        
-        output$preview <- DT::renderDataTable({
-          DT::datatable(pred_results, options = list(pageLength = 10))
+        output$preview <- DT::renderDT({
+          DT::datatable(pred_results, options = list(pageLength = 10, scrollX = TRUE))
         })
         
-        pred_results_long <- prediction %>%
-          rownames_to_column(var = "ID") %>%
-          pivot_longer(cols = all_of(columns_to_select), names_to = "category", values_to = "percent")
-        
-        output$bar_plot <- renderPlot({
-          ggplot(pred_results_long, aes(x = ID, y = percent, fill = category)) +
-            geom_bar(stat = "identity") +
-            scale_fill_viridis_d(option = "D") +
-            scale_y_continuous(labels = percent_format(accuracy = 1)) +
-            labs(x = "Individual ID", y = "Ancestry Proportion", fill = "Line") +
-            theme_minimal() +
-            theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
-        })
+        pred_results_long <- tibble::rownames_to_column(prediction, var = "ID")
+        pred_results_long <- tidyr::pivot_longer(
+          pred_results_long,
+          cols = dplyr::all_of(columns_to_select),
+          names_to = "category",
+          values_to = "percent"
+        )
+
+        pred_results_long$predicted_line <- id_order$predicted_line[match(pred_results_long$ID, id_order$ID)]
+
+        poly_items$pred_results <- pred_results
+        poly_items$pred_results_long <- pred_results_long
+        poly_items$id_order <- id_order
         
         output$status <- renderText("Estimation complete. File ready for download.")
         
@@ -164,9 +230,74 @@ mod_polybreedtools_server <- function(input, output, session, parent_session){
       })
     })
     
-    output$download_results <- downloadHandler(
-      filename = function() basename(result_filename()),
-      content = function(file) file.copy(result_filename(), file)
+    ancestry_plot <- reactive({
+      req(poly_items$pred_results_long, poly_items$id_order)
+
+      dat <- poly_items$pred_results_long
+
+      if (isTRUE(input$poly_sort_by_predicted)) {
+        ord <- poly_items$id_order[order(poly_items$id_order$predicted_line, -poly_items$id_order$predicted_value), , drop = FALSE]
+        dat$ID <- factor(dat$ID, levels = ord$ID)
+      } else {
+        dat$ID <- factor(dat$ID, levels = unique(dat$ID))
+      }
+
+      p <- ggplot2::ggplot(dat, ggplot2::aes(x = ID, y = percent, fill = category)) +
+        ggplot2::geom_bar(stat = "identity") +
+        viridis::scale_fill_viridis_d(option = "D") +
+        ggplot2::scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+        ggplot2::labs(x = "Individual ID", y = "Ancestry Proportion", fill = "Line") +
+        ggplot2::theme_minimal()
+
+      if (isTRUE(input$poly_show_sample_labels)) {
+        p <- p + ggplot2::theme(
+          axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = as.numeric(input$poly_label_size %||% 8))
+        )
+      } else {
+        p <- p + ggplot2::theme(
+          axis.text.x = ggplot2::element_blank(),
+          axis.ticks.x = ggplot2::element_blank()
+        )
+      }
+
+      p
+    })
+
+    output$bar_plot <- renderPlot({
+      req(poly_items$pred_results_long)
+      ancestry_plot()
+    })
+
+    output$download_poly_file <- downloadHandler(
+      filename = function() {
+        paste0("lineage_estimation_", format(Sys.Date(), "%Y-%m-%d"), ".xlsx")
+      },
+      content = function(file) {
+        req(poly_items$pred_results)
+        openxlsx::write.xlsx(poly_items$pred_results, file = file, rowNames = FALSE)
+      }
+    )
+
+    output$download_poly_figure <- downloadHandler(
+      filename = function() {
+        ext <- input$poly_image_type %||% "png"
+        paste0("polybreedtools_ancestry_plot_", format(Sys.Date(), "%Y-%m-%d"), ".", ext)
+      },
+      content = function(file) {
+        req(poly_items$pred_results_long)
+        p <- ancestry_plot()
+
+        ext <- input$poly_image_type %||% "png"
+        width <- as.numeric(input$poly_image_width %||% 10)
+        height <- as.numeric(input$poly_image_height %||% 5)
+        dpi <- as.numeric(input$poly_image_res %||% 300)
+
+        if (ext %in% c("png", "jpeg")) {
+          ggplot2::ggsave(filename = file, plot = p, width = width, height = height, units = "in", dpi = dpi)
+        } else {
+          ggplot2::ggsave(filename = file, plot = p, width = width, height = height, units = "in")
+        }
+      }
     )
     
     # Sample reference IDs with >2 rows and variable length names
@@ -214,3 +345,7 @@ mod_polybreedtools_server <- function(input, output, session, parent_session){
 
 ## To be copied in the server
 # mod_diversity_server("SNMF_1")
+
+`%||%` <- function(x, y) {
+  if (is.null(x)) y else x
+}
