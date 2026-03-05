@@ -137,207 +137,207 @@ mod_polybreedtools_ui <- function(id){
 #' @importFrom graphics axis hist points
 #' @import ggplot2
 #' @importFrom scales comma_format
-#' @import viridis
+#' @importFrom ggplot2 scale_fill_viridis_d
 #' @import openxlsx
 #' @import BIGr
 #'
 #' @noRd
 mod_polybreedtools_server <- function(input, output, session, parent_session){
-
-    ns <- session$ns
+  
+  ns <- session$ns
+  
+  #Helper function
+  format_percent <- function(x) {
+    scales::percent_format(accuracy = 0.1)(x)
+  }
+  
+  
+  result_data <- reactiveVal(NULL)
+  poly_items <- reactiveValues(
+    pred_results = NULL,
+    pred_results_long = NULL,
+    id_order = NULL
+  )
+  
+  observeEvent(input$run, {
+    req(input$reference_file, input$ref_ids_file, input$validation_file)
+    output$status <- renderText("Running estimation...")
     
-    #Helper function
-    format_percent <- function(x) {
-      scales::percent_format(accuracy = 0.1)(x)
-    }
-
-
-    result_data <- reactiveVal(NULL)
-    poly_items <- reactiveValues(
-      pred_results = NULL,
-      pred_results_long = NULL,
-      id_order = NULL
-    )
-    
-    observeEvent(input$run, {
-      req(input$reference_file, input$ref_ids_file, input$validation_file)
-      output$status <- renderText("Running estimation...")
+    tryCatch({
+      reference <- utils::read.table(input$reference_file$datapath, header = TRUE, sep = "\t")
+      reference <- dplyr::distinct(reference, ID, .keep_all = TRUE)
+      reference <- tibble::column_to_rownames(reference, "ID")
       
-      tryCatch({
-        reference <- utils::read.table(input$reference_file$datapath, header = TRUE, sep = "\t")
-        reference <- dplyr::distinct(reference, ID, .keep_all = TRUE)
-        reference <- tibble::column_to_rownames(reference, "ID")
-        
-        reference_ids <- utils::read.table(input$ref_ids_file$datapath, header = TRUE, sep = "\t")
-        ref_ids <- lapply(as.list(reference_ids), as.character)
-        
-        validation <- utils::read.table(input$validation_file$datapath, header = TRUE, sep = "\t")
-        validation <- dplyr::distinct(validation, ID, .keep_all = TRUE)
-        validation <- tibble::column_to_rownames(validation, "ID")
-        
-        freq <- BIGr:::allele_freq_poly(reference, ref_ids, ploidy = input$ploidy)
-        prediction <- BIGr:::solve_composition_poly(validation, freq, ploidy = input$ploidy)
-        
-        prediction <- as.data.frame(prediction, check.names = FALSE)
-        prediction <- prediction[, !colnames(prediction) %in% c("R2"), drop = FALSE]
-        prediction[] <- lapply(prediction, as.numeric)
-
-        columns_to_select <- colnames(prediction)
-
-        predicted_line <- columns_to_select[max.col(prediction[, columns_to_select, drop = FALSE], ties.method = "first")]
-
-        pred_results <- tibble::rownames_to_column(prediction, var = "ID")
-        pred_results <- dplyr::mutate(
-          pred_results,
-          `Predicted line` = predicted_line
-        )
-        pred_results <- dplyr::mutate(
-          pred_results,
-          dplyr::across(dplyr::all_of(columns_to_select), ~format_percent(.x))
-        )
-        
-        result_data(pred_results)
-
-        id_order <- data.frame(
-          ID = rownames(prediction),
-          predicted_line = predicted_line,
-          predicted_value = apply(prediction[, columns_to_select, drop = FALSE], 1, max, na.rm = TRUE),
-          stringsAsFactors = FALSE
-        )
-        
-        output$preview <- DT::renderDT({
-          DT::datatable(pred_results, options = list(pageLength = 10, scrollX = TRUE))
-        })
-        
-        pred_results_long <- tibble::rownames_to_column(prediction, var = "ID")
-        pred_results_long <- tidyr::pivot_longer(
-          pred_results_long,
-          cols = dplyr::all_of(columns_to_select),
-          names_to = "category",
-          values_to = "percent"
-        )
-
-        pred_results_long$predicted_line <- id_order$predicted_line[match(pred_results_long$ID, id_order$ID)]
-
-        poly_items$pred_results <- pred_results
-        poly_items$pred_results_long <- pred_results_long
-        poly_items$id_order <- id_order
-        
-        output$status <- renderText("Estimation complete. File ready for download.")
-        
-      }, error = function(e) {
-        output$status <- renderText(paste("Error during estimation:", e$message))
+      reference_ids <- utils::read.table(input$ref_ids_file$datapath, header = TRUE, sep = "\t")
+      ref_ids <- lapply(as.list(reference_ids), as.character)
+      
+      validation <- utils::read.table(input$validation_file$datapath, header = TRUE, sep = "\t")
+      validation <- dplyr::distinct(validation, ID, .keep_all = TRUE)
+      validation <- tibble::column_to_rownames(validation, "ID")
+      
+      freq <- BIGr:::allele_freq_poly(reference, ref_ids, ploidy = input$ploidy)
+      prediction <- BIGr:::solve_composition_poly(validation, freq, ploidy = input$ploidy)
+      
+      prediction <- as.data.frame(prediction, check.names = FALSE)
+      prediction <- prediction[, !colnames(prediction) %in% c("R2"), drop = FALSE]
+      prediction[] <- lapply(prediction, as.numeric)
+      
+      columns_to_select <- colnames(prediction)
+      
+      predicted_line <- columns_to_select[max.col(prediction[, columns_to_select, drop = FALSE], ties.method = "first")]
+      
+      pred_results <- tibble::rownames_to_column(prediction, var = "ID")
+      pred_results <- dplyr::mutate(
+        pred_results,
+        `Predicted line` = predicted_line
+      )
+      pred_results <- dplyr::mutate(
+        pred_results,
+        dplyr::across(dplyr::all_of(columns_to_select), ~format_percent(.x))
+      )
+      
+      result_data(pred_results)
+      
+      id_order <- data.frame(
+        ID = rownames(prediction),
+        predicted_line = predicted_line,
+        predicted_value = apply(prediction[, columns_to_select, drop = FALSE], 1, max, na.rm = TRUE),
+        stringsAsFactors = FALSE
+      )
+      
+      output$preview <- DT::renderDT({
+        DT::datatable(pred_results, options = list(pageLength = 10, scrollX = TRUE))
       })
+      
+      pred_results_long <- tibble::rownames_to_column(prediction, var = "ID")
+      pred_results_long <- tidyr::pivot_longer(
+        pred_results_long,
+        cols = dplyr::all_of(columns_to_select),
+        names_to = "category",
+        values_to = "percent"
+      )
+      
+      pred_results_long$predicted_line <- id_order$predicted_line[match(pred_results_long$ID, id_order$ID)]
+      
+      poly_items$pred_results <- pred_results
+      poly_items$pred_results_long <- pred_results_long
+      poly_items$id_order <- id_order
+      
+      output$status <- renderText("Estimation complete. File ready for download.")
+      
+    }, error = function(e) {
+      output$status <- renderText(paste("Error during estimation:", e$message))
     })
+  })
+  
+  ancestry_plot <- reactive({
+    req(poly_items$pred_results_long, poly_items$id_order)
     
-    ancestry_plot <- reactive({
-      req(poly_items$pred_results_long, poly_items$id_order)
-
-      dat <- poly_items$pred_results_long
-
-      if (isTRUE(input$poly_sort_by_predicted)) {
-        ord <- poly_items$id_order[order(poly_items$id_order$predicted_line, -poly_items$id_order$predicted_value), , drop = FALSE]
-        dat$ID <- factor(dat$ID, levels = ord$ID)
-      } else {
-        dat$ID <- factor(dat$ID, levels = unique(dat$ID))
-      }
-
-      p <- ggplot(dat, aes(x = ID, y = percent, fill = category)) +
-        geom_bar(stat = "identity") +
-        viridis::scale_fill_viridis_d(option = "D") +
-        scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-        labs(x = "Individual ID", y = "Ancestry Proportion", fill = "Line") +
-        theme_minimal()
-
-      if (isTRUE(input$poly_show_sample_labels)) {
-        p <- p + theme(
-          axis.text.x = element_text(angle = 45, hjust = 1, size = as.numeric(input$poly_label_size %||% 8))
-        )
-      } else {
-        p <- p + theme(
-          axis.text.x = element_blank(),
-          axis.ticks.x = element_blank()
-        )
-      }
-
-      p
-    })
-
-    output$bar_plot <- renderPlot({
+    dat <- poly_items$pred_results_long
+    
+    if (isTRUE(input$poly_sort_by_predicted)) {
+      ord <- poly_items$id_order[order(poly_items$id_order$predicted_line, -poly_items$id_order$predicted_value), , drop = FALSE]
+      dat$ID <- factor(dat$ID, levels = ord$ID)
+    } else {
+      dat$ID <- factor(dat$ID, levels = unique(dat$ID))
+    }
+    
+    p <- ggplot(dat, aes(x = ID, y = percent, fill = category)) +
+      geom_bar(stat = "identity") +
+      scale_fill_viridis_d(option = "A") +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+      labs(x = "Individual ID", y = "Ancestry Proportion", fill = "Line") +
+      theme_minimal()
+    
+    if (isTRUE(input$poly_show_sample_labels)) {
+      p <- p + theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = as.numeric(input$poly_label_size %||% 8))
+      )
+    } else {
+      p <- p + theme(
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()
+      )
+    }
+    
+    p
+  })
+  
+  output$bar_plot <- renderPlot({
+    req(poly_items$pred_results_long)
+    ancestry_plot()
+  })
+  
+  output$download_poly_file <- downloadHandler(
+    filename = function() {
+      paste0("lineage_estimation_", format(Sys.Date(), "%Y-%m-%d"), ".xlsx")
+    },
+    content = function(file) {
+      req(poly_items$pred_results)
+      openxlsx::write.xlsx(poly_items$pred_results, file = file, rowNames = FALSE)
+    }
+  )
+  
+  output$download_poly_figure <- downloadHandler(
+    filename = function() {
+      ext <- input$poly_image_type %||% "png"
+      paste0("polybreedtools_ancestry_plot_", format(Sys.Date(), "%Y-%m-%d"), ".", ext)
+    },
+    content = function(file) {
       req(poly_items$pred_results_long)
-      ancestry_plot()
-    })
-
-    output$download_poly_file <- downloadHandler(
-      filename = function() {
-        paste0("lineage_estimation_", format(Sys.Date(), "%Y-%m-%d"), ".xlsx")
-      },
-      content = function(file) {
-        req(poly_items$pred_results)
-        openxlsx::write.xlsx(poly_items$pred_results, file = file, rowNames = FALSE)
+      p <- ancestry_plot()
+      
+      ext <- input$poly_image_type %||% "png"
+      width <- as.numeric(input$poly_image_width %||% 10)
+      height <- as.numeric(input$poly_image_height %||% 5)
+      dpi <- as.numeric(input$poly_image_res %||% 300)
+      
+      if (ext %in% c("png", "jpeg")) {
+        ggplot2::ggsave(filename = file, plot = p, width = width, height = height, units = "in", dpi = dpi)
+      } else {
+        ggplot2::ggsave(filename = file, plot = p, width = width, height = height, units = "in")
       }
-    )
-
-    output$download_poly_figure <- downloadHandler(
-      filename = function() {
-        ext <- input$poly_image_type %||% "png"
-        paste0("polybreedtools_ancestry_plot_", format(Sys.Date(), "%Y-%m-%d"), ".", ext)
-      },
-      content = function(file) {
-        req(poly_items$pred_results_long)
-        p <- ancestry_plot()
-
-        ext <- input$poly_image_type %||% "png"
-        width <- as.numeric(input$poly_image_width %||% 10)
-        height <- as.numeric(input$poly_image_height %||% 5)
-        dpi <- as.numeric(input$poly_image_res %||% 300)
-
-        if (ext %in% c("png", "jpeg")) {
-          ggplot2::ggsave(filename = file, plot = p, width = width, height = height, units = "in", dpi = dpi)
-        } else {
-          ggplot2::ggsave(filename = file, plot = p, width = width, height = height, units = "in")
-        }
-      }
-    )
-    
-    # Sample reference IDs with >2 rows and variable length names
-    example_ids_df <- data.frame(
-      Group1 = c("SampleAlpha", "S3", "ExampleFour", "",""),
-      Group2 = c("SampleOne", "SampleTwo", "SampleThree", "SampleFour", "SampleFive"),
-      Group3 = c("SampleX", "SampleYy", "SampleZzzz", "ExampleEight", "")
-    )
-    
-    output$example_ids <- renderTable({
-      example_ids_df
-    }, bordered = TRUE)
-    
-    # Sample genotype matrix matching your example
-    example_genos_df <- data.frame(
-      ID = paste0("Sample", c("1", "2", "3", "4", "5")),
-      Marker1 = as.integer(c(0, 0, 1, 2, 1)),
-      Marker2 = as.integer(c(0, 1, 0, 1, 2)),
-      Marker3 = as.integer(c(0, 0, 0, 1, 1)),
-      Marker4 = as.integer(c(0, 0, 0, 0, 0))
-    )
-    
-    output$example_genos <- renderTable({
-      example_genos_df
-    }, bordered = TRUE)
-    
-    # Download handlers for sample files
-    output$download_ids <- downloadHandler(
-      filename = function() "sample_reference_ids.txt",
-      content = function(file) {
-        write.table(example_ids_df, file, sep = "\t", row.names = FALSE, quote = FALSE)
-      }
-    )
-    
-    output$download_genos <- downloadHandler(
-      filename = function() "sample_genotypes.txt",
-      content = function(file) {
-        write.table(example_genos_df, file, sep = "\t", row.names = FALSE, quote = FALSE)
-      }
-    )
+    }
+  )
+  
+  # Sample reference IDs with >2 rows and variable length names
+  example_ids_df <- data.frame(
+    Group1 = c("SampleAlpha", "S3", "ExampleFour", "",""),
+    Group2 = c("SampleOne", "SampleTwo", "SampleThree", "SampleFour", "SampleFive"),
+    Group3 = c("SampleX", "SampleYy", "SampleZzzz", "ExampleEight", "")
+  )
+  
+  output$example_ids <- renderTable({
+    example_ids_df
+  }, bordered = TRUE)
+  
+  # Sample genotype matrix matching your example
+  example_genos_df <- data.frame(
+    ID = paste0("Sample", c("1", "2", "3", "4", "5")),
+    Marker1 = as.integer(c(0, 0, 1, 2, 1)),
+    Marker2 = as.integer(c(0, 1, 0, 1, 2)),
+    Marker3 = as.integer(c(0, 0, 0, 1, 1)),
+    Marker4 = as.integer(c(0, 0, 0, 0, 0))
+  )
+  
+  output$example_genos <- renderTable({
+    example_genos_df
+  }, bordered = TRUE)
+  
+  # Download handlers for sample files
+  output$download_ids <- downloadHandler(
+    filename = function() "sample_reference_ids.txt",
+    content = function(file) {
+      write.table(example_ids_df, file, sep = "\t", row.names = FALSE, quote = FALSE)
+    }
+  )
+  
+  output$download_genos <- downloadHandler(
+    filename = function() "sample_genotypes.txt",
+    content = function(file) {
+      write.table(example_genos_df, file, sep = "\t", row.names = FALSE, quote = FALSE)
+    }
+  )
 }
 
 ## To be copied in the UI
