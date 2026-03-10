@@ -95,12 +95,21 @@ mod_polybreedtools_ui <- function(id){
           title = "Status",
           width = 12,
           collapsible = TRUE,
-          collapsed = FALSE,
           status = "info",
           solidHeader = TRUE,
           shiny::verbatimTextOutput(ns("status"))
         ),
         box(title = "Plot Controls", width=12, status = "warning", solidHeader = TRUE, collapsible = TRUE,
+            selectInput(ns("color_choice"), "Color Palette", choices = list("Standard Palettes" = c("Set1","Set3","Pastel2",
+                                                                                                    "Pastel1","Accent","Spectral",
+                                                                                                    "RdYlGn","RdGy"),
+                                                                            "Colorblind Friendly" = c("Set2","Paired","Dark2","YlOrRd","YlOrBr","YlGnBu","YlGn",
+                                                                                                      "Reds","RdPu","Purples","PuRd","PuBuGn","PuBu",
+                                                                                                      "OrRd","Oranges","Greys","Greens","GnBu","BuPu",
+                                                                                                      "BuGn","Blues","RdYlBu",
+                                                                                                      "RdBu", "PuOr","PRGn","PiYG","BrBG"
+                                                                            )),
+                        selected = "Set1"),
             checkboxInput(ns("poly_show_sample_labels"), "Show sample labels", value = FALSE),
             checkboxInput(ns("poly_sort_by_predicted"), "Sort by predicted line", value = TRUE),
             sliderInput(ns("poly_label_size"), "Label size", min = 6, max = 14, value = 8, step = 1),
@@ -136,8 +145,8 @@ mod_polybreedtools_ui <- function(id){
 #'
 #' @importFrom graphics axis hist points
 #' @import ggplot2
+#' @import RColorBrewer
 #' @importFrom scales comma_format
-#' @importFrom ggplot2 scale_fill_viridis_d
 #' @import openxlsx
 #' @import BIGr
 #'
@@ -171,11 +180,88 @@ mod_polybreedtools_server <- function(input, output, session, parent_session){
       reference_ids <- utils::read.table(input$ref_ids_file$datapath, header = TRUE, sep = "\t")
       ref_ids <- lapply(as.list(reference_ids), as.character)
       
-      validation <- utils::read.table(input$validation_file$datapath, header = TRUE, sep = "\t")
+validation_raw <- utils::read.table(input$validation_file$datapath, header = TRUE, sep = "\t")     
+
+# NA filtering: validation samples (rows) with < 50% call rate
+sample_call_rate <- rowSums(!is.na(validation_raw)) / ncol(validation_raw)
+removed_samples <- validation_raw$ID[sample_call_rate < 0.5]
+validation_filtered <- validation_raw[sample_call_rate >= 0.5, , drop = FALSE]
+
+# NA filtering: validation markers (columns) with all NA
+col_call_counts <- colSums(!is.na(validation_filtered))
+removed_markers <- colnames(validation_filtered)[col_call_counts == 0]
+validation <- validation_filtered[, col_call_counts > 0, drop = FALSE]
+
+
+# Build warning messages
+warning_messages <- c()
+if (length(removed_samples) > 0) {
+  warning_messages <- c(warning_messages, paste(
+    "WARNING: The following validation samples were removed due to genotyping rate < 50%:\n",
+    paste0("  • ", removed_samples, collapse = "\n")
+  ))
+}
+if (length(removed_markers) > 0) {
+  warning_messages <- c(warning_messages, paste(
+    "WARNING: The following markers were removed from validation because they had no successful genotype calls:\n",
+    paste0("  • ", removed_markers, collapse = "\n")
+  ))
+}
+      
+      
+      
+      #duplicated ids in validation file
+       val_ids <- validation[, 1]
+      dup_val <- val_ids[duplicated(val_ids)]
+      if (length(dup_val) > 0) {
+        
+        # Build message
+        dup_val_msg <- paste(
+          "Error: The following sample IDs have duplicates in your validation file.",
+          "Please check your input file and remove or rename the following IDs:\n",
+          paste0("  • ", dup_val, collapse = "\n")
+        )
+        
+        # Show it in the ‘Status’ box
+        output$status <- renderText(dup_val_msg)
+        return()
+      }
+      
+      
       validation <- dplyr::distinct(validation, ID, .keep_all = TRUE)
       validation <- tibble::column_to_rownames(validation, "ID")
       
       freq <- BIGr:::allele_freq_poly(reference, ref_ids, ploidy = input$ploidy)
+      
+      # Error on NaN in freq
+      
+      na_pos <- which(is.na(freq), arr.ind = TRUE)   # rows = row #, cols = col #
+      
+      if (nrow(na_pos) > 0) {
+        
+        # For each marker (column) collect the rows that contain NaN
+        na_report <- lapply(unique(na_pos[, 2]), function(col_idx) {
+          rows_with_na <- na_pos[na_pos[, 2] == col_idx, 1]   # row numbers
+          
+          paste0(
+            "  • ", colnames(freq)[col_idx], ": ",          # marker name
+            paste(rownames(freq)[rows_with_na], collapse = ", ")
+          )
+        })
+        
+        # Build message
+        NaN_freq_msg <- paste(
+          "Error: The following markers where not succesfully genotyped for at least one reference population, please remove or correct them:",
+          paste(na_report, collapse = "\n"),
+          "\nPlease remove or correct these markers", sep = "\n"
+        )
+        
+        # Show it in the ‘Status’ box
+        output$status <- renderText(NaN_freq_msg)
+        return()
+      }
+        
+      
       prediction <- BIGr:::solve_composition_poly(validation, freq, ploidy = input$ploidy)
       
       prediction <- as.data.frame(prediction, check.names = FALSE)
@@ -223,8 +309,17 @@ mod_polybreedtools_server <- function(input, output, session, parent_session){
       poly_items$pred_results_long <- pred_results_long
       poly_items$id_order <- id_order
       
-      output$status <- renderText("Estimation complete. File ready for download.")
+      final_status <- "Estimation complete. File ready for download."
       
+      if (length(warning_messages) > 0) {
+        final_status <- paste(
+          final_status,
+          "\n\n",
+          paste(warning_messages, collapse = "\n\n")
+        )
+      }
+      
+      output$status <- renderText(final_status)      
     }, error = function(e) {
       output$status <- renderText(paste("Error during estimation:", e$message))
     })
@@ -244,7 +339,7 @@ mod_polybreedtools_server <- function(input, output, session, parent_session){
     
     p <- ggplot(dat, aes(x = ID, y = percent, fill = category)) +
       geom_bar(stat = "identity") +
-      scale_fill_viridis_d(option = "A") +
+      scale_fill_brewer(palette = input$color_choice) +
       scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
       labs(x = "Individual ID", y = "Ancestry Proportion", fill = "Line") +
       theme_minimal()
