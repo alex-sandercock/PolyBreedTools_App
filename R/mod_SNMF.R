@@ -201,6 +201,39 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
     out_path
   }
 
+  same_path <- function(path_a, path_b) {
+    identical(
+      normalizePath(path_a, winslash = "/", mustWork = FALSE),
+      normalizePath(path_b, winslash = "/", mustWork = FALSE)
+    )
+  }
+
+  copy_file_if_needed <- function(from, to, overwrite = TRUE) {
+    if (same_path(from, to)) {
+      return(to)
+    }
+
+    ok <- file.copy(from, to, overwrite = overwrite)
+    if (!isTRUE(ok)) {
+      stop("Failed to copy file from ", from, " to ", to, call. = FALSE)
+    }
+
+    to
+  }
+
+  run_ctx <- new.env(parent = emptyenv())
+  run_ctx$run_dir <- NULL
+
+  cleanup_run_dir <- function(path = run_ctx$run_dir) {
+    if (!is.null(path) && dir.exists(path)) {
+      unlink(path, recursive = TRUE, force = TRUE)
+    }
+
+    if (identical(run_ctx$run_dir, path)) {
+      run_ctx$run_dir <- NULL
+    }
+  }
+
   state <- shiny::reactiveValues(
     run_dir = NULL,
     project = NULL,
@@ -396,11 +429,10 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
 
     entropy_enabled <- input$snmf_select_mode %in% c("auto_entropy", "manual_entropy")
 
-    if (!is.null(state$run_dir) && dir.exists(state$run_dir)) {
-      unlink(state$run_dir, recursive = TRUE, force = TRUE)
-    }
+    cleanup_run_dir()
 
     state$run_dir <- tempfile("snmf_", tmpdir = tempdir())
+    run_ctx$run_dir <- state$run_dir
     dir.create(state$run_dir, recursive = TRUE, showWarnings = FALSE)
     state$project <- NULL
     state$geno_path <- NULL
@@ -423,23 +455,18 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
 
     geno_path <- file.path(state$run_dir, paste0(file_base, ".geno"))
     vcf_path <- file.path(state$run_dir, paste0(file_base, ".vcf"))
-
-    # Copy uploaded file into run_dir for consistent outputs.
-    uploaded_copy <- file.path(state$run_dir, basename(uploaded_name))
-    file.copy(input$snmf_file$datapath, uploaded_copy, overwrite = TRUE)
+    uploaded_path <- input$snmf_file$datapath
 
     # Convert input to .geno if needed
-    # Might want to do this manually with vcfR and conversion to the matrix #######
     if (grepl("\\.geno$", ext_lower)) {
-      file.copy(uploaded_copy, geno_path, overwrite = TRUE)
+      copy_file_if_needed(uploaded_path, geno_path, overwrite = TRUE)
     } else if (grepl("\\.vcf$", ext_lower)) {
-      file.copy(uploaded_copy, vcf_path, overwrite = TRUE)
       shinyWidgets::updateProgressBar(session = session, id = "pb_snmf", value = 15, title = "Converting VCF → GENO")
       set_status("Converting VCF to GENO...\n")
 
       vcf2geno_res <- tryCatch(
         {
-          call_with_allowed_named_args(LEA::vcf2geno, list(vcf_path, output.file = geno_path))
+          call_with_allowed_named_args(LEA::vcf2geno, list(uploaded_path, output.file = geno_path))
         },
         error = function(e) e
       )
@@ -449,7 +476,7 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
         geno_candidates <- list.files(state$run_dir, pattern = "\\.geno$", full.names = TRUE)
         if (length(geno_candidates) >= 1) {
           newest <- geno_candidates[which.max(file.info(geno_candidates)$mtime)]
-          file.copy(newest, geno_path, overwrite = TRUE)
+          copy_file_if_needed(newest, geno_path, overwrite = TRUE)
         }
       }
 
@@ -464,7 +491,7 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
       shinyWidgets::updateProgressBar(session = session, id = "pb_snmf", value = 10, title = "Decompressing VCF.GZ")
       set_status("Decompressing VCF.GZ...\n")
 
-      decompress_gz(uploaded_copy, vcf_path)
+      decompress_gz(uploaded_path, vcf_path)
 
       shinyWidgets::updateProgressBar(session = session, id = "pb_snmf", value = 15, title = "Converting VCF → GENO")
       set_status("Converting VCF to GENO...\n")
@@ -480,7 +507,7 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
         geno_candidates <- list.files(state$run_dir, pattern = "\\.geno$", full.names = TRUE)
         if (length(geno_candidates) >= 1) {
           newest <- geno_candidates[which.max(file.info(geno_candidates)$mtime)]
-          file.copy(newest, geno_path, overwrite = TRUE)
+          copy_file_if_needed(newest, geno_path, overwrite = TRUE)
         }
       }
 
@@ -673,9 +700,7 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
   )
 
   session$onSessionEnded(function() {
-    if (!is.null(state$run_dir) && dir.exists(state$run_dir)) {
-      unlink(state$run_dir, recursive = TRUE, force = TRUE)
-    }
+    cleanup_run_dir()
   })
 }
 

@@ -8,7 +8,6 @@
 #'
 #' @importFrom shiny NS tagList
 #' @import shinydisconnect
-#' @importFrom DT dataTableOutput
 #' @importFrom bs4Dash valueBoxOutput
 mod_polybreedtools_ui <- function(id){
   ns <- NS(id)
