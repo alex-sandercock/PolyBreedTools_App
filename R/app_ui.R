@@ -17,7 +17,7 @@ app_ui <- function(request) {
       skin = "black",
       bs4DashNavbar(
         title = tagList(
-          tags$img(src = 'www/familia_logo.png', height = '40', width = '50'),
+          tags$img(src = 'www/familia_logo.png', height = '40', width = '40'),
         ),
         rightUi = tags$li(
           class = "dropdown",

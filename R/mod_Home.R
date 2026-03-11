@@ -18,7 +18,7 @@ mod_Home_ui <- function(id){
       fluidRow(
         column(width = 4,
                box(
-                 title = "Breeding Insight Genomics App", status = "info", solidHeader = FALSE, width = 12, collapsible = FALSE,
+                 title = "Familia: Ancestry Estimation App", status = "info", solidHeader = FALSE, width = 12, collapsible = FALSE,
                  HTML(
               "<p>The BIGapp is a user-friendly tool for processing low to mid-density genotyping data for diploid and polyploid species. This R shiny app provides a web-based user friendly way for users to analyze genomic data without needing to use command-line tools.
               Additional analysis will be added, with the initial focus on a core set of features for supporting breeding decisions.</p>
