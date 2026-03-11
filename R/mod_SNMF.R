@@ -187,20 +187,6 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
     do.call(fun, args[keep])
   }
 
-  decompress_gz <- function(gz_path, out_path) {
-    in_con <- gzfile(gz_path, open = "rb")
-    on.exit(close(in_con), add = TRUE)
-    out_con <- file(out_path, open = "wb")
-    on.exit(close(out_con), add = TRUE)
-
-    repeat {
-      buf <- readBin(in_con, what = "raw", n = 1024 * 1024)
-      if (length(buf) == 0) break
-      writeBin(buf, out_con)
-    }
-    out_path
-  }
-
   same_path <- function(path_a, path_b) {
     identical(
       normalizePath(path_a, winslash = "/", mustWork = FALSE),
@@ -219,6 +205,34 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
     }
 
     to
+  }
+
+  write_vcf_upload_as_geno <- function(vcf_path, geno_path) {
+    vcf <- vcfR::read.vcfR(vcf_path, verbose = FALSE)
+    gt <- as.matrix(vcfR::extract.gt(vcf, element = "GT"))
+
+    if (nrow(gt) == 0 || ncol(gt) == 0) {
+      stop("No genotype calls were found in the uploaded VCF.", call. = FALSE)
+    }
+
+    dosage_cols <- lapply(seq_len(ncol(gt)), function(i) {
+      BIGr:::convert_to_dosage(gt[, i])
+    })
+
+    dosage_mat <- do.call(cbind, dosage_cols)
+    colnames(dosage_mat) <- colnames(gt)
+    rownames(dosage_mat) <- rownames(gt)
+
+    lea_mat <- t(dosage_mat)
+    lea_mat[is.na(lea_mat)] <- 9
+    storage.mode(lea_mat) <- "integer"
+
+    LEA::write.geno(lea_mat, geno_path)
+
+    list(
+      geno_path = geno_path,
+      sample_ids = colnames(gt)
+    )
   }
 
   run_ctx <- new.env(parent = emptyenv())
@@ -245,7 +259,8 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
     ce_df = NULL,
     ce_summary = NULL,
     best_k = NULL,
-    best_run_by_k = NULL
+    best_run_by_k = NULL,
+    sample_ids = NULL
   )
 
   output$snmf_best_k_box <- bs4Dash::renderValueBox({
@@ -336,7 +351,9 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
     )
 
     q <- as.matrix(q)
-    if (is.null(rownames(q))) {
+    if (!is.null(state$sample_ids) && length(state$sample_ids) == nrow(q)) {
+      rownames(q) <- state$sample_ids
+    } else if (is.null(rownames(q))) {
       rownames(q) <- paste0("ind", seq_len(nrow(q)))
     }
     colnames(q) <- paste0("Cluster", seq_len(ncol(q)))
@@ -444,6 +461,7 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
     state$ce_summary <- NULL
     state$best_k <- NULL
     state$best_run_by_k <- NULL
+    state$sample_ids <- NULL
 
     shinyWidgets::updateProgressBar(session = session, id = "pb_snmf", value = 5, title = "Preparing input")
     set_status("Preparing input...\n")
@@ -454,25 +472,23 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
     file_base <- sub("\\.(vcf\\.gz|vcf|geno|gz)$", "", basename(uploaded_name), ignore.case = TRUE)
 
     geno_path <- file.path(state$run_dir, paste0(file_base, ".geno"))
-    vcf_path <- file.path(state$run_dir, paste0(file_base, ".vcf"))
     uploaded_path <- input$snmf_file$datapath
 
     # Convert input to .geno if needed
     if (grepl("\\.geno$", ext_lower)) {
       copy_file_if_needed(uploaded_path, geno_path, overwrite = TRUE)
-    } else if (grepl("\\.vcf$", ext_lower)) {
+    } else if (grepl("\\.vcf\\.gz$|\\.vcf$|\\.gz$", ext_lower)) {
       shinyWidgets::updateProgressBar(session = session, id = "pb_snmf", value = 15, title = "Converting VCF → GENO")
       set_status("Converting VCF to GENO...\n")
 
-      vcf2geno_res <- tryCatch(
+      vcf_to_geno_res <- tryCatch(
         {
-          call_with_allowed_named_args(LEA::vcf2geno, list(uploaded_path, output.file = geno_path))
+          write_vcf_upload_as_geno(uploaded_path, geno_path)
         },
         error = function(e) e
       )
 
       if (!file.exists(geno_path)) {
-        # Fallback: vcf2geno might choose its own output filename
         geno_candidates <- list.files(state$run_dir, pattern = "\\.geno$", full.names = TRUE)
         if (length(geno_candidates) >= 1) {
           newest <- geno_candidates[which.max(file.info(geno_candidates)$mtime)]
@@ -481,42 +497,15 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
       }
 
       if (!file.exists(geno_path)) {
-        msg <- if (inherits(vcf2geno_res, "error")) vcf2geno_res$message else "vcf2geno() did not produce a .geno file."
+        msg <- if (inherits(vcf_to_geno_res, "error")) vcf_to_geno_res$message else "VCF conversion did not produce a .geno file."
         show_error("VCF conversion failed", msg)
         shinyWidgets::updateProgressBar(session = session, id = "pb_snmf", value = 0, title = " ")
         set_status(paste0("ERROR: ", msg, "\n"))
         return()
       }
-    } else if (grepl("\\.vcf\\.gz$|\\.gz$", ext_lower)) {
-      shinyWidgets::updateProgressBar(session = session, id = "pb_snmf", value = 10, title = "Decompressing VCF.GZ")
-      set_status("Decompressing VCF.GZ...\n")
 
-      decompress_gz(uploaded_path, vcf_path)
-
-      shinyWidgets::updateProgressBar(session = session, id = "pb_snmf", value = 15, title = "Converting VCF → GENO")
-      set_status("Converting VCF to GENO...\n")
-
-      vcf2geno_res <- tryCatch(
-        {
-          call_with_allowed_named_args(LEA::vcf2geno, list(vcf_path, output.file = geno_path))
-        },
-        error = function(e) e
-      )
-
-      if (!file.exists(geno_path)) {
-        geno_candidates <- list.files(state$run_dir, pattern = "\\.geno$", full.names = TRUE)
-        if (length(geno_candidates) >= 1) {
-          newest <- geno_candidates[which.max(file.info(geno_candidates)$mtime)]
-          copy_file_if_needed(newest, geno_path, overwrite = TRUE)
-        }
-      }
-
-      if (!file.exists(geno_path)) {
-        msg <- if (inherits(vcf2geno_res, "error")) vcf2geno_res$message else "vcf2geno() did not produce a .geno file."
-        show_error("VCF.GZ conversion failed", msg)
-        shinyWidgets::updateProgressBar(session = session, id = "pb_snmf", value = 0, title = " ")
-        set_status(paste0("ERROR: ", msg, "\n"))
-        return()
+      if (is.list(vcf_to_geno_res) && !is.null(vcf_to_geno_res$sample_ids)) {
+        state$sample_ids <- vcf_to_geno_res$sample_ids
       }
     } else {
       show_error("Unsupported file type", "Upload a .vcf, .vcf.gz, or .geno file.")
@@ -526,7 +515,7 @@ mod_SNMF_server <- function(input, output, session, parent_session) {
     }
 
     state$geno_path <- geno_path
-    state$vcf_path <- if (file.exists(vcf_path)) vcf_path else NULL
+    state$vcf_path <- NULL
 
     shinyWidgets::updateProgressBar(session = session, id = "pb_snmf", value = 35, title = "Running SNMF")
     set_status(
