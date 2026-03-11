@@ -32,7 +32,8 @@ Imports:
     bs4Dash,
     shinyWidgets,
     shinydisconnect,
-    shinyjs
+    shinyjs,
+    RColorBrewer
 Suggests:
     LEA,
     spelling,
